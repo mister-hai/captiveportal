@@ -227,7 +227,6 @@ def add_to_db(thingie):
         print(makered("[-] add_to_db() FAILED"))
 
 def ReturnClientVar(client, var):
-    ''''''
     return client.query.filter_by(var)
 
 def ReturnClientById(idnum):

