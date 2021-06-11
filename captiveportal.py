@@ -14,10 +14,9 @@ import socketserver as socketserver
 from http.server import HTTPServer as Webserver
 import core
 from core import JSONCommand,CaptiveClient,PybashyDB
-from core import does_exists,update_db,add_to_db
-import getmac
-
-getmac.get_mac_address()
+from core import error_printer
+from backendDB import * 
+from backendDB import greenprint
 #try:
 #    from urllib.parse import urlparse
 #except ImportError:
@@ -25,21 +24,6 @@ getmac.get_mac_address()
 #try:
 #    import SocketServer as socketserver
 #except ImportError:
-try:
-    import colorama
-    from colorama import init
-    init()
-    from colorama import Fore, Back, Style
-    COLORMEQUALIFIED = True
-except ImportError as derp:
-    print("[-] NO COLOR PRINTING FUNCTIONS AVAILABLE, Install the Colorama Package from pip")
-    COLORMEQUALIFIED = False
-
-blueprint  = lambda text: print(Fore.BLUE + ' ' +  text + ' ' + Style.RESET_ALL) if (COLORMEQUALIFIED == True) else print(text)
-greenprint = lambda text: print(Fore.GREEN + ' ' +  text + ' ' + Style.RESET_ALL) if (COLORMEQUALIFIED == True) else print(text)
-redprint   = lambda text: print(Fore.RED + ' ' +  text + ' ' + Style.RESET_ALL) if (COLORMEQUALIFIED == True) else print(text)
-yellow_bold_print = lambda text: print(Fore.YELLOW + Style.BRIGHT + ' {} '.format(text) + Style.RESET_ALL) if (COLORMEQUALIFIED == True) else print(text)
-
 parser = argparse.ArgumentParser(description='Captive Portal tool')
 parser.add_argument('--target',
                                  dest    = 'target',
@@ -588,7 +572,7 @@ Debugging Function to display backend information
                 #filehandle.write('\n\n')
                 #filehandle.close()
         except Exception:
-            core.error_printer("[-] Could Not Write File!")
+            error_printer("[-] Could Not Write File!")
 
         steps = {
         "": {

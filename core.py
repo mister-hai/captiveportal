@@ -44,8 +44,10 @@ import threading
 import subprocess
 from pathlib import Path
 from importlib import import_module
-import backendDB
-from backendDB import *
+#import backendDB
+from backendDB import redprint,greenprint,blueprint,makeyellow
+from backendDB import info_message,critical_message,is_method
+from backendDB import yellow_bold_print
 ################################################################################
 ##############                      VARS                       #################
 ################################################################################

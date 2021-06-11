@@ -230,11 +230,11 @@ def ReturnClientVar(client, var):
     ''''''
     return client.query.filter_by(var)
 
-def ReturnClientById(id):
-    PybashyDB.query(CaptiveClient.id)
+def ReturnClientById(idnum):
+    PybashyDB.session.query(idnum)
 
 def queryusers(username):
-    PybashyDb.query()
+    PybashyDb.session.query(CaptiveClient).filter_by(username = username)
 
 def add_cmd_to_db(cmd_to_add):
     """
@@ -271,6 +271,20 @@ def update_db():
         print(derp.with_traceback)
         print(makered("[-] Update_db FAILED"))
 
+def DoesUsernameExist(username):
+    """
+    "name" is the primary key of DB, is unique
+    """
+    try:
+        if PybashyDB.session.query(CaptiveClient).filter_by(name=username).scalar() is not None:
+            info_message('[-] CaptiveUser {} Does Not Exist'.format(username))
+            return None
+        else:
+            info_message('[-] CaptiveUser {} Exists'.format(username))
+            return True
+    except Exception:
+        error_printer("[-] DoesUsernameExist() FAILED")
+
 def does_exists(self,Table, Row):
     try:
         if PybashyDB.session.query(Table.id).filter_by(name=Row).first() is not None:
@@ -284,215 +298,20 @@ def does_exists(self,Table, Row):
 #########################################################
 ###         INITIALIZE DATABASE TABLES
 #########################################################
-#testuser = CaptiveClient(Hostname= "ChristmasParty",
-#                         username = "johnmclaine",
-#                         password= "machinegun",
-#                         macaddr = "de:ad:be:ef:ca:fe",
-#                         email   = "1badasscop@nakatomi.plaza",
-#                         notes   = "treat with respect"
-#                       )
-
-#try:
-#    PybashyDB.create_all()
-#    PybashyDB.session.commit()
-#except Exception:
-#    exc_type, exc_value, exc_tb = sys.exc_info()
-#    tb = traceback.TracebackException(exc_type, exc_value, exc_tb) 
-#    error_message("[-] Database Table Creation FAILED \n" + ''.join(tb.format_exception_only()))
-
-################################################################################
-##############                      CONFIG                     #################
-################################################################################
-TEST_DB            = 'sqlite://'
-DATABASE           = "captive portal"
-LOCAL_CACHE_FILE   = 'sqlite:///' + DATABASE + ".db"
-DATABASE_FILENAME  = DATABASE + '.db'
-
-if database_exists(LOCAL_CACHE_FILE) or os.path.exists(DATABASE_FILENAME):
-    DATABASE_EXISTS = True
-else:
-    DATABASE_EXISTS = False        
-  
-class Config(object):
-# TESTING = True
-# set in the std_imports for a global TESTING at top level scope
-    SQLALCHEMY_DATABASE_URI = LOCAL_CACHE_FILE
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
+testuser = CaptiveClient(Hostname= "ChristmasParty",
+                         username = "johnmclaine",
+                         password= "machinegun",
+                         macaddr = "de:ad:be:ef:ca:fe",
+                         email   = "1badasscop@nakatomi.plaza",
+                         notes   = "treat with respect"
+                       )
 
 try:
-    engine = create_engine(LOCAL_CACHE_FILE , connect_args={"check_same_thread": False},poolclass=StaticPool)
-    PybashyDatabase = Flask(__name__ )
-    PybashyDatabase.config.from_object(Config)
-    PybashyDB = SQLAlchemy(PybashyDatabase)
-    PybashyDB.init_app(PybashyDatabase)
-    if TESTING == True:
-        PybashyDB.metadata.clear()
+    PybashyDB.create_all()
+    PybashyDB.session.commit()
 except Exception:
     exc_type, exc_value, exc_tb = sys.exc_info()
     tb = traceback.TracebackException(exc_type, exc_value, exc_tb) 
-    error_message("[-] Database Initialization FAILED \n" + ''.join(tb.format_exception_only()))
+    error_message("[-] Database Table Creation FAILED \n" + ''.join(tb.format_exception_only()))
 
-class JSONCommand(PybashyDB.Model):
-    __tablename__       = 'CommandSets'
-    #__table_args__      = {'extend_existing': True}
-    id                  = PybashyDB.Column(PybashyDB.Integer,
-                                          index         = True,
-                                          unique        = True,
-                                          autoincrement = True)
-    command_name                  = PybashyDB.Column(PybashyDB.String(256), primary_key   = True)                                          
-    payload                       = PybashyDB.Column(PybashyDB.Text)#,
-                                                     #primary_key   = True)
-    notes                         = PybashyDB.Column(PybashyDB.Text)
-
-    def __repr__(self):
-        return '''=========================================
-CommandSet Name : {}
-CommandSet_JSON : {} 
-Notes           : {}
-'''.format(self.command_name,
-            self.payload,
-            self.notes
-        )
-#########################################################
-###                    User MODEL
-#########################################################
-class CaptiveClient(PybashyDB.Model):
-    __tablename__       = 'Hosts'
-    #__table_args__      = {'extend_existing': True}
-    id                  = PybashyDB.Column(PybashyDB.Integer,
-                                          primary_key   = True,
-                                          index         = True,
-                                          unique        = True,
-                                          autoincrement = True)
-    Hostname                  = PybashyDB.Column(PybashyDB.String(256))                                          
-    username                  = PybashyDB.Column(PybashyDB.String(256))
-    password                  = PybashyDB.Column(PybashyDB.String(256))
-    macaddr                   = PybashyDB.Column(PybashyDB.String(32))
-    ipaddress                 = PybashyDB.Column(PybashyDB.String(32))
-    email                     = PybashyDB.Column(PybashyDB.String(256))
-    isauthenticated           = PybashyDB.Column(PybashyDB.Bool)
-    isactive                  = PybashyDB.Column(PybashyDB.Bool)
-
-    def __repr__(self):
-        return '''=========================================
-Username : {}
-Password : {} 
-Email    : {}
-'''.format(self.username,
-            self.password,
-            self.email,
-        )
-    def is_active(self):
-        """"""
-        return self.active
-
-    def logout(self):
-        ''''''
-        self.active = False
-
-    def login(self):
-        ''''''
-        self.active = True 
-
-    def get_id(self):
-        #"""Return the email address to satisfy Flask-Login's requirements."""
-        #return self.email
-        pass
-    
-    def is_authenticated(self):
-        """Return True if the user is authenticated."""
-        return self.authenticated
-
-################################################
-###             DATABASE FUNCTIONS
-#########################################################
-def add_to_db(thingie):
-    """
-    Takes SQLAchemy model Objects 
-    For updating changes to Class_model.Attribute using the form:
-        Class_model.Attribute = some_var 
-        add_to_db(some_var)
-    """
-    try:
-        PybashyDB.session.add(thingie)
-        PybashyDB.session.commit
-        redprint("=========Database Commit=======")
-        greenprint(thingie)
-        redprint("=========Database Commit=======")
-    except Exception as derp:
-        print(derp)
-        print(makered("[-] add_to_db() FAILED"))
-
-def ReturnClientVar(client, var):
-    ''''''
-    return client.query.filter_by(var)
-
-def ReturnClientById(id):
-    PybashyDB.query(CaptiveClient.id)
-
-def queryusers(username):
-    PybashyDb.query()
-
-def add_cmd_to_db(cmd_to_add):
-    """
-    "name" is the primary key of DB, is unique
-    """
-    try:
-        if PybashyDB.session.query(cmd_to_add).filter_by(name=cmd_to_add.name).scalar() is not None:
-            info_message('[+] Duplicate Entry Avoided : ' + cmd_to_add.name)
-        # and doesnt get added
-        else: # and it does if it doesnt... which works out somehow ;p
-            PybashyDB.session.add(cmd_to_add)
-            info_message('[+] Command Added To Database : ' + cmd_to_add.name)
-    except Exception:
-        error_printer("[-] add_cmd_to_db() FAILED")
-
-def DoesUsernameExist(username):
-    """
-    "name" is the primary key of DB, is unique
-    """
-    try:
-        if PybashyDB.session.query(CaptiveClient).filter_by(name=username).scalar() is not None:
-            info_message('[-] CaptiveUser {} Does Not Exist'.format(username))
-            return None
-        else:
-            info_message('[-] CaptiveUser {} Exists'.format(username))
-            return True
-    except Exception:
-        error_printer("[-] DoesUsernameExist() FAILED")
-
-def update_db():
-    try:
-        PybashyDB.session.commit()
-    except Exception as derp:
-        print(derp.with_traceback)
-        print(makered("[-] Update_db FAILED"))
-
-def does_exists(self,Table, Row):
-    try:
-        if PybashyDB.session.query(Table.id).filter_by(name=Row).first() is not None:
-            info_message('[+] Client {} Exists'.format(Row))
-            return True
-        else:
-            return False        
-    except Exception:
-        error_printer('[-] Database VERIFICATION FAILED!')
-
-#########################################################
-###         INITIALIZE DATABASE TABLES
-#########################################################
-#testuser = CaptiveClient(Hostname= "ChristmasParty",
-#                         username = "johnmclaine",
-#                         password= "machinegun",
-#                         macaddr = "de:ad:be:ef:ca:fe",
-#                         email   = "1badasscop@nakatomi.plaza",
-#                         notes   = "treat with respect"
-#                       )
-
-#try:
-#    PybashyDB.create_all()
-#    PybashyDB.session.commit()
-#except Exception:
-#    exc_type, exc_value, exc_tb = sys.exc_info()
-#    tb = traceback.TracebackException(exc_type, exc_value, exc_tb) 
-#    error_message("[-] Database Table Creation FAILED \n" + ''.join(tb.format_exception_only()))
+greenprint("[+] Database Loaded!")
