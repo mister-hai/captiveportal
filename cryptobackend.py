@@ -21,8 +21,44 @@
 TESTING = True
 import sys,os
 import hashlib
-import crypto
+import secrets
+import cryptography
+from cryptography.fernet import Fernet
 from binascii import hexlify
+from backendDB import redprint,greenprint,blueprint,makeyellow
+from backendDB import info_message,critical_message,is_method
+from backendDB import yellow_bold_print
+
+class Key():
+    ''' turns a string into a key byte array, or generates a secure random key'''
+    def __init__(self,load:bool,generate:bool,KeyfileName:str):
+        if generate == True:
+            self.CreateKeyFernet(KeyfileName)
+
+    def CreateKeyFernet(self,name:str):
+        """Generates a key and save it into a file
+>>> f = Fernet(key)
+>>> token = f.encrypt(b"A really secret message. Not for prying eyes.")
+>>> token
+    b'...'
+>>> f.decrypt(token)
+    b'A really secret message. Not for prying eyes.'
+"""
+        key = Fernet.generate_key()
+        key_file = open(name, "wb", encoding = "utf-8")
+        key_file.write(key)
+        key_file.close()
+
+    
+    def CreateKeySecrets(self):
+        return secrets.randbits(self.bitsize)
+
+    def LoadKeyFernet(self,name:str):
+        """
+Loads the key named `secret.key` from the current directory.
+
+"""
+        return open(name, "rb").read()
 
 class HashString():
     '''implementation of multiple hashing algorhithms to obtain key bytes from 
@@ -30,18 +66,6 @@ a string and salt
 
 typeofhash = "sha256" || "sha512" || "md5"
 
->>> import hashlib
->>> m = hashlib.sha256()
->>> m.update(b"Nobody inspects")
->>> m.update(b" the spammish repetition")
->>> m.digest()
-    b'\x03\x1e\xdd}Ae\x15\x93\xc5\xfe\\\x00o\xa5u+7\xfd\xdf\xf7\xbcN\x84:\xa6\xaf\
-    x0c\x95\x0fK\x94\x06'
->>> m.digest_size
-    32
->>> m.block_size
-    64
----OR---
 hashlib.sha224(b"Nobody inspects the spammish repetition").hexdigest()
 'a4337bc45a8fc544c03f52dc550cd6e1e87021bc896588bd79e901e2'
 --- AND ---
@@ -51,23 +75,44 @@ hashlib.sha224(b"Nobody inspects the spammish repetition").hexdigest()
 '19197dc4d03829df858011c6c87600f994a858103bbc19005f20987aa19a97e2'
 
 '''
-    def __init__(self, typeofhash:int):
-        pass
+    def __init__(self, typeofhash:int, string:str):
+        try:
+            if typeofhash == "sha256":
+                pass
+            elif typeofhash=="sha512":
+                pass
+            elif typeofhash == "md5":
+                pass
+            else:
+                raise Exception
+        except Exception:
+            print("[-] Error in HashString.__init__")
+            SystemExit
 
+    def sha256(self,keystring:str,encoding =  "utf-8"):
+        ''' returns a sha256 digest of a password'''
+        m = hashlib.sha256()
+        m.update(bytes(keystring),encoding)
+        m.update(b" the spammish repetition")
+        return m.digest()
+
+    def sha512(self,keystring:str,encoding =  "utf-8"):
+        ''' returns a sha512 digest of a password'''
+        m = hashlib.sha512()
+        m.update(bytes(keystring),encoding)
+        m.update(b" the spammish repetition")
+        return m.digest()
 
 class Seed():
     '''You must invoke a high entropic value in the system from which a
  ciphertext is derived from a plaintext'''
-    def __init__(self):
+    def __init__(self,source = "internal"):
+
         pass
 
 class PBKDF():
     '''Implementation of multiple Password Based Key Derivation Algorhithms
->>> import hashlib
->>> dk = hashlib.pbkdf2_hmac('sha256', b'password', b'salt', 100000)
->>> dk.hex()
-    '0394a2ede332c9a13eb82e9b24631604c31df978b4e2f0fbd2c549944f9d79a5
---- OR ---
+
 hashlib.scrypt(password, *, salt, n, r, p, maxmem=0, dklen=64)
     The function provides scrypt password-based key derivation function 
         - defined in RFC 7914.
@@ -90,12 +135,18 @@ hashlib.scrypt(password, *, salt, n, r, p, maxmem=0, dklen=64)
     def __init__(self, salt:str, password:str, bitsrequired:int):
         pass
 
+    def pbkdf2(self, type:str,password:bytes,salt:bytes):
+        derivedkey = hashlib.pbkdf2_hmac(type, password, salt, 100000)
+        return derivedkey.hex()
+
+    def ScryptKey(self, password,salt,n,r,p):
+        hashlib.scrypt(password,*,salt, n, r, p, maxmem=0, dklen=64)
+
 class Salt():
     def __init__(self):
         self.salt = os.urandom(16)
-
         pass
-    
+
 class Encrypt():
     def __init__(self, plaintext, salt, password):
         pass
