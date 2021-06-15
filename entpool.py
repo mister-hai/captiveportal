@@ -184,11 +184,6 @@ class XORShift():
     def __init__(self):
         pass
     
-    def uniformity(self, x):
-        '''Will return a number describing the uniformity of the data fed to it
-Accepts arrays of integers/floats'''
-        return lambda x : 1 - 0.5*sum( abs(x - numpy.average(x)) )/(len(x)*numpy.average(x))
-    
     def XORBox(self, number_of_itterations):
         '''Performs XOR and shuffling operations on a grid of PRN/CSPRN
         to simply generate an even more secure byte array...
@@ -235,7 +230,11 @@ class EntropyPool():
         self.mixingmethod = method
         self.bytesize = bytesize
         self.scalingfactor = self.finalizescaling(scalingfactor)
-        self.SaltMine(self.bytesize,self.mixingmethod)
+    
+    def uniformity(self, x):
+        '''Will return a number describing the uniformity of the data fed to it
+Accepts arrays of integers/floats'''
+        return lambda x : 1 - 0.5*sum( abs(x - numpy.average(x)) )/(len(x)*numpy.average(x))
 
     def finalizescaling(self, inputplustuff):
         scalingfactor = inputplustuff
@@ -265,8 +264,7 @@ Will itterate the operation the specified number of times  '''
             #if XOR
             if method == "xor":
                 xorstuff = XORShift()
-                for x in range(number_of_itterations):
-                    self.pool.append(xorstuff.XORBox(number_of_itterations))
+                self.pool.append(xorstuff.XORBox(number_of_itterations))
             # mersenne twister
             elif method == "twist":
                 twister = MersenneTwist()
@@ -300,8 +298,3 @@ This is the Function to call externally'''
         scalingfactor = 1
         NewPool = EntropyPool(bytearraylength, scalingfactor)
         NewPool.SaltMine
-    
-    def uniformity(self, x):
-        '''Will return a number describing the uniformity of the data fed to it
-Accepts arrays of integers/floats'''
-        return lambda x : 1 - 0.5*sum( abs(x - numpy.average(x)) )/(len(x)*numpy.average(x))
