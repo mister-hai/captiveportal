@@ -23,38 +23,6 @@ This tutorial uses code from the following sources:
 https://github.com/yinengy/Mersenne-Twister-in-Python
 https://github.com/AllenDowney/PythonCounterPmf/
 
- hmac.new(key, msg=None, digestmod='')
-    Return a new hmac object. key is a bytes or bytearray object giving the 
-    secret key. If msg is present, the method call update(msg) is made. 
-    digestmod is the digest name, digest constructor or module for the HMAC 
-    object to use. It may be any name suitable to hashlib.new(). Despite its 
-    argument position, it is required.
-    Changed in version 3.4: Parameter key can be a bytes or bytearray object. 
-    Parameter msg can be of any type supported by hashlib. Parameter digestmod 
-    can be the name of a hash algorithm.
-
-HMAC.update(msg)
-    Update the hmac object with msg. Repeated calls are equivalent to a single 
-    call with the concatenation of all the arguments: m.update(a); m.update(b) 
-    is equivalent to m.update(a + b).
-    Changed in version 3.4: Parameter msg can be of any type supported by hashlib.
-
-HMAC.digest()
-    Return the digest of the bytes passed to the update() method so far. This bytes 
-    object will be the same length as the digest_size of the digest given to the 
-    constructor. It may contain non-ASCII bytes, including NUL bytes.
-    When comparing the output of digest() to an externally-supplied digest during a 
-    verification routine, it is recommended to use the compare_digest() function 
-    instead of the == operator to reduce the vulnerability to timing attacks.
-
-HMAC.hexdigest()
-    Like digest() except the digest is returned as a string twice the length 
-    containing only hexadecimal digits. This may be used to exchange the value safely 
-    in email or other non-binary environments.
-    When comparing the output of hexdigest() to an externally-supplied digest during a 
-    verification routine, it is recommended to use the compare_digest() function 
-    instead of the == operator to reduce the vulnerability to timing attacks.
-
 Claude Shannon's definition of self-information was chosen to meet several axioms:
     - An event with probability 100% is perfectly unsurprising and yields no information.
     - The less probable an event is, the more surprising it is and the more information it yields.
@@ -183,15 +151,40 @@ class MersenneTwist():
 class XORShift():
     def __init__(self):
         pass
+
+    def VonNeumanExtractor(self, data1,data2):
+        '''Von Neumann extractor 
+    can be shown to produce a uniform output even if the distribution 
+    of input bits is not uniform so long as:
+        - each bit has the same probability of being one 
+        - there is no correlation between successive bits.
     
-    def XORBox(self, number_of_itterations):
+From Wikipedia:
+   From the input stream, his extractor took bits, two at a time 
+   (first and second, then third and fourth, and so on). 
+   If the two bits matched, no output was generated. 
+   If the bits differed, the value of the first bit was output. 
+'''
+        datafield = []
+        try:
+            for bytefield1,bytefield2 in data1,data2:
+                if bytefield1 == bytefield2:
+                    #discard the number
+                    pass
+                elif bytefield1 != bytefield2:
+                    #save the number
+                    datafield.append(bytefield1)
+        except Exception:
+            error_printer("[-] Von Neuman Extractor failed:")
+        return datafield
+
+    def XORBox(self, seed, number_of_itterations):
         '''Performs XOR and shuffling operations on a grid of PRN/CSPRN
         to simply generate an even more secure byte array...
         and i still dont understand how randomness is a thing for a number '''
         XORFinal = []
         datafield = []
-        #d1len = len(data1)
-        #d2len = len(data2)
+
         try:
             # to begin with, we wrap everything in an itterator to perform 
             # multiple passes of the XOR/shift, allowing us to use the randomness
@@ -216,29 +209,27 @@ class XORShift():
                         #row operations
                         pass
                     # ... And so on
-
+                self.VonNeumanExtractor(XORFinal, datafield)
         except Exception:
             error_printer("[-] Could not XOR bytes: ")
         return XORFinal
 
 
 class EntropyPool():
-    '''Holds A pool of entropic value'''
+    '''Holds A pool of entropic value
+Final pool is held in self.output
+'''
     def __init__(self, bytesize:int, scalingfactor:int, method = "xor"):
         #setup the system in order
-        self.pool = list
-        self.mixingmethod = method
+        self.pool = []
         self.bytesize = bytesize
-        self.scalingfactor = self.finalizescaling(scalingfactor)
-    
+        self.output = list
+        self.randomnesscheck = MassProbabilityFunction()
+
     def uniformity(self, x):
         '''Will return a number describing the uniformity of the data fed to it
 Accepts arrays of integers/floats'''
         return lambda x : 1 - 0.5*sum( abs(x - numpy.average(x)) )/(len(x)*numpy.average(x))
-
-    def finalizescaling(self, inputplustuff):
-        scalingfactor = inputplustuff
-        return scalingfactor
 
     def gettime(self):
         timenow = time.time()
@@ -247,34 +238,23 @@ Accepts arrays of integers/floats'''
     def gettimenanosec(self):
         timenow = time.time_ns()
         return timenow
-    
-    def fillpool(self):
-        '''populate a dict with random values'''
-        pass
 
-    def stirrpool(self,strongseed):
-        pass
-
-    def SaltMine(self, bytesize, method:str, number_of_itterations, seed):
+    def SaltMine(self, bytesize, number_of_itterations, seed):
         '''Derives good random numbers from a variety of sources
-    method == "xor" || "twist"
-
-Will itterate the operation the specified number of times  '''
+    - Will itterate the operation the specified number of times
+    - Performs an XOR Shuffle on a set of PRN generated by a Mersenne Twister'''
         try:
-            #if XOR
-            if method == "xor":
-                xorstuff = XORShift()
-                self.pool.append(xorstuff.XORBox(number_of_itterations))
-            # mersenne twister
-            elif method == "twist":
-                twister = MersenneTwist()
-                twister.seedtwister(seed)
-                for x in range(number_of_itterations):
-                    self.pool.append(twister.extract_number())
-            else:
-                raise Exception
+            xorstuff = XORShift()
+            # setup the mersenne twister to begin generating numbers
+            twister = MersenneTwist()
+            twister.seedtwister(seed)
+            for x in range(number_of_itterations):
+                self.pool.append(twister.extract_number())
+            for seedbytes in self.pool:
+                self.output.append(xorstuff.XORBox(seedbytes, number_of_itterations))
+
         except Exception:
-            error_printer("[-]")
+            error_printer("[-] Could not Create Randomness")
         
     def source1(self):
         '''return os.urandom(self.bytesize)'''
@@ -296,5 +276,7 @@ class EntropyPoolHandler():
 This is the Function to call externally'''
     def __init__(self, bytearraylength = 32):
         scalingfactor = 1
+        # we need to perform sorting operations and metrics so 
+        # we instantiate multiple handlers to perform those operations
         NewPool = EntropyPool(bytearraylength, scalingfactor)
-        NewPool.SaltMine
+        NewPool.SaltMine(bytearraylength ,scalingfactor,NewPool.source1)
