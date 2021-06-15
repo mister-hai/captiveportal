@@ -50,6 +50,11 @@ HMAC.hexdigest()
     verification routine, it is recommended to use the compare_digest() function 
     instead of the == operator to reduce the vulnerability to timing attacks.
 
+Claude Shannon's definition of self-information was chosen to meet several axioms:
+    - An event with probability 100% is perfectly unsurprising and yields no information.
+    - The less probable an event is, the more surprising it is and the more information it yields.
+    - If two independent events are measured separately, the total amount of information 
+      is the sum of the self-informations of the individual events.
 """ 
 #t = Timer(...)       # outside the try/except
 #try:
@@ -170,9 +175,12 @@ Will itterate the operation the specified number of times  '''
          hmac.new(data1, msg=data2, digestmod='')
 
 
-    def XOR(self, data1:bytes, data2:bytes , number_of_itterations):
-        '''Returns the xor of two byte arrays'''
+    def XORBox(self, number_of_itterations):
+        '''Performs XOR and shuffling operations on a grid of PRN/CSPRN
+        to simply generate an even more secure byte array...
+        and i still dont understand how randomness is a thing for a number '''
         XORFinal = []
+        datafield = []
         #d1len = len(data1)
         #d2len = len(data2)
         try:
@@ -180,24 +188,26 @@ Will itterate the operation the specified number of times  '''
             # multiple passes of the XOR/shift, allowing us to use the randomness
             # extractor to create a new number 
             for current_itteration in range(number_of_itterations): 
-            # lets use the index for stuff, I dont know if that makes it better or worse
-                # Note: binary is a horrible system for measuring crypto
             # think of this loop as defining an X,Y coordinate system
-            # we are taking two numbers and stretching them into a line equal to thier size
+            # we are taking byte fields and stretching them into a line
+            # equal to thier size
             # but one number (index) we define on the fly, inside the loop
             # for x_coordinate in y_coordinate:
                 for index in datafield:
-                    # index + 1 is over one column
+                    # index + 1 is over one column to the right
+                    # index - 1 is to the left
                     # Row A is this loop here, each data item is a Row
                     for byte in data1:
-                        #row operations
+                        # row operations
                         # use index to access other rows as thus:
                         # data2[index] == data1[index] == current column, named row
                         pass
-                    #column B
+                    #Row B
                     for byte in data2:
                         #row operations
                         pass
+                    # ... And so on
+
         except Exception:
             error_printer("[-] Could not XOR bytes: ")
         return XORFinal
