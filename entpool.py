@@ -151,7 +151,7 @@ class EntropyPool():
 Will itterate the operation the specified number of times  '''
         try:
             if method == "xor":
-                self.XOR(self.source1(),self.source2(), number_of_itterations)
+                self.XORBox(number_of_itterations)
             elif method == "hmac":
                 self.hmac(self.source1(),self.source2(), number_of_itterations)
             else:
@@ -197,13 +197,13 @@ Will itterate the operation the specified number of times  '''
                     # index + 1 is over one column to the right
                     # index - 1 is to the left
                     # Row A is this loop here, each data item is a Row
-                    for byte in data1:
+                    for byte in datafield[index == 0]:
                         # row operations
                         # use index to access other rows as thus:
                         # data2[index] == data1[index] == current column, named row
                         pass
                     #Row B
-                    for byte in data2:
+                    for byte in datafield[index == 1]:
                         #row operations
                         pass
                     # ... And so on
