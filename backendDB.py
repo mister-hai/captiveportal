@@ -151,7 +151,7 @@ class JSONCommand(PybashyDB.Model):
         return '''=========================================
 CommandSet Name : {}
 CommandSet_JSON : {} 
-Notes           : {}
+Notes           : {}-
 '''.format(self.command_name,
             self.payload,
             self.notes
@@ -269,20 +269,6 @@ def update_db():
     except Exception as derp:
         print(derp.with_traceback)
         print(makered("[-] Update_db FAILED"))
-
-def DoesUsernameExist(username):
-    """
-    "name" is the primary key of DB, is unique
-    """
-    try:
-        if PybashyDB.session.query(CaptiveClient).filter_by(name=username).scalar() is not None:
-            info_message('[-] CaptiveUser {} Does Not Exist'.format(username))
-            return None
-        else:
-            info_message('[-] CaptiveUser {} Exists'.format(username))
-            return True
-    except Exception:
-        error_printer("[-] DoesUsernameExist() FAILED")
 
 def does_exists(self,Table, Row):
     try:

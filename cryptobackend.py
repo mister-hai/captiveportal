@@ -20,6 +20,7 @@
 """"""
 TESTING = True
 import sys,os
+from entpool import EntropyPool
 import hashlib
 import secrets
 import cryptography
@@ -31,19 +32,13 @@ from backendDB import yellow_bold_print
 
 class Key():
     ''' turns a string into a key byte array, or generates a secure random key'''
-    def __init__(self,load:bool,generate:bool,KeyfileName:str):
+    def __init__(self,load:bool,generate:bool,KeyfileName:str, bitlength = 32):
+        self.bitsize = bitlength
         if generate == True:
             self.CreateKeyFernet(KeyfileName)
 
     def CreateKeyFernet(self,name:str):
-        """Generates a key and save it into a file
->>> f = Fernet(key)
->>> token = f.encrypt(b"A really secret message. Not for prying eyes.")
->>> token
-    b'...'
->>> f.decrypt(token)
-    b'A really secret message. Not for prying eyes.'
-"""
+        """Generates a key and save it into a file"""
         key = Fernet.generate_key()
         key_file = open(name, "wb", encoding = "utf-8")
         key_file.write(key)
@@ -54,54 +49,47 @@ class Key():
         return secrets.randbits(self.bitsize)
 
     def LoadKeyFernet(self,name:str):
-        """
-Loads the key named `secret.key` from the current directory.
-
-"""
+        """Loads the key from the current directory."""
         return open(name, "rb").read()
 
-class HashString():
+class Hash():
     '''implementation of multiple hashing algorhithms to obtain key bytes from 
 a string and salt
-
 typeofhash = "sha256" || "sha512" || "md5"
-
-hashlib.sha224(b"Nobody inspects the spammish repetition").hexdigest()
-'a4337bc45a8fc544c03f52dc550cd6e1e87021bc896588bd79e901e2'
---- AND ---
->>> h = hashlib.new('sha512_256')
->>> h.update(b"Nobody inspects the spammish repetition")
->>> h.hexdigest()
-'19197dc4d03829df858011c6c87600f994a858103bbc19005f20987aa19a97e2'
-
 '''
-    def __init__(self, typeofhash:int, string:str):
+    def __init__(self, typeofhash:int, password:str):
+        #after salting the passwords with a PBKDF...
+        self.type   = typeofhash
         try:
             if typeofhash == "sha256":
-                pass
+                self.Digest = self.sha256(bytes(password))
             elif typeofhash=="sha512":
-                pass
+                self.Digest = self.sha512(bytes(password))
             elif typeofhash == "md5":
-                pass
+                self.Digest = self.md5(bytes(password))
             else:
                 raise Exception
         except Exception:
             print("[-] Error in HashString.__init__")
             SystemExit
 
-    def sha256(self,keystring:str,encoding =  "utf-8"):
-        ''' returns a sha256 digest of a password'''
-        m = hashlib.sha256()
-        m.update(bytes(keystring),encoding)
-        m.update(b" the spammish repetition")
-        return m.digest()
+    def md5(self,keybytes:bytes):
+        ''' returns a sha512 digest of a password after salting with PBKDF'''
+        herp = hashlib.md5()
+        herp.update(keybytes)
+        return herp.digest()
 
-    def sha512(self,keystring:str,encoding =  "utf-8"):
-        ''' returns a sha512 digest of a password'''
-        m = hashlib.sha512()
-        m.update(bytes(keystring),encoding)
-        m.update(b" the spammish repetition")
-        return m.digest()
+    def sha256(self,keybytes:bytes,encoding =  "utf-8"):
+        ''' returns a sha256 digest of a password after salting with PBKDF'''
+        herp = hashlib.sha256()
+        herp.update(keybytes)
+        return herp.digest()
+
+    def sha512(self,keybytes:bytes,encoding =  "utf-8"):
+        ''' returns a sha512 digest of a password after salting with PBKDF'''
+        herp = hashlib.sha512()
+        herp.update(keybytes)
+        return herp.digest()
 
 class Seed():
     '''You must invoke a high entropic value in the system from which a
@@ -112,45 +100,59 @@ class Seed():
 
 class PBKDF():
     '''Implementation of multiple Password Based Key Derivation Algorhithms
-
-hashlib.scrypt(password, *, salt, n, r, p, maxmem=0, dklen=64)
-    The function provides scrypt password-based key derivation function 
-        - defined in RFC 7914.
     password and salt must be bytes-like objects. 
-    Applications and libraries should limit password to a sensible length 
-        - e.g. 1024 
-    salt should be about 16 or more bytes from a proper source
-        - e.g. os.urandom()
-    
+    salt should be about 16 or more bytes from a proper source    
         n      = CPU/Memory cost factor
         r      = block size
-        p      =  parallelization factor 
-        maxmem =  limits memory 
+        p      = parallelization factor 
+        maxmem = limits memory 
                     - (OpenSSL 1.1.0 defaults to 32 MiB). 
         dklen  = length of the derived key.
-    
-    Availability: OpenSSL 1.1+.
-    New in version 3.6.
 '''
     def __init__(self, salt:str, password:str, bitsrequired:int):
         pass
 
     def pbkdf2(self, type:str,password:bytes,salt:bytes):
+        '''returns the hex encoding of the key, derived from a password string'''
         derivedkey = hashlib.pbkdf2_hmac(type, password, salt, 100000)
         return derivedkey.hex()
 
     def ScryptKey(self, password,salt,n,r,p):
-        hashlib.scrypt(password,*,salt, n, r, p, maxmem=0, dklen=64)
+        '''returns the hex encoding of the key, derived from a password string'''
+        derivedkey = hashlib.scrypt(password, salt, n, r, p, maxmem=0, dklen=64)
+        return derivedkey.hex()
 
 class Salt():
-    def __init__(self):
-        self.salt = os.urandom(16)
-        pass
+    '''used to generate a salt
+    Salt factor 5 seems reasonable at first glance
+    itteration value
+    '''
+    def __init__(self,bytesize:int, saltfactor =5):
+        self.entropypoolcoefficient = saltfactor
+        self.poursalt(bytesize)
+    
+    def poursalt(self, bytesize:int):
+        herp = EntropyPool(bytesize)
+        return herp.SaltMine(bytesize)
 
 class Encrypt():
+    ''''''
     def __init__(self, plaintext, salt, password):
+        pass
+    
+    def Fernet(self, key, salt, plaintext):
+        herp = Fernet(key)
+        ciphertext = herp.encrypt(plaintext)
+        return ciphertext
+    
+    def aesGCM(self):
         pass
 
 class Decrypt():
     def __init__(self):
         pass
+
+    def Fernet(self, key, salt, plaintext):
+        herp = Fernet(key)
+        ciphertext = herp.decrypt(plaintext)
+        return ciphertext

