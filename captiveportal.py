@@ -485,7 +485,6 @@ Debugging Function to display backend information
             greenprint('adding to address pool')
             self.networkaddrpool.append(self.remote_IP)
             #set user to active and log them in
-            #core.
         #if they are not in the DB, force them to authenticate
         elif DoesUsernameExist(username) == False :
             self.wfile.write(self.login())

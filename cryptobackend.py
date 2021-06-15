@@ -127,7 +127,7 @@ class Salt():
     Salt factor 5 seems reasonable at first glance
     itteration value
     '''
-    def __init__(self,bytesize:int, saltfactor =5):
+    def __init__(self,bytesize:int, saltfactor = 5):
         self.entropypoolcoefficient = saltfactor
         self.poursalt(bytesize)
     

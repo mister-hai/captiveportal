@@ -18,6 +18,11 @@
 # THE SOFTWARE.
 ################################################################################
 """Entropy Pool?
+
+This tutorial uses code from the following sources:
+https://github.com/yinengy/Mersenne-Twister-in-Python
+https://github.com/AllenDowney/PythonCounterPmf/
+
  hmac.new(key, msg=None, digestmod='')
     Return a new hmac object. key is a bytes or bytearray object giving the 
     secret key. If msg is present, the method call update(msg) is made. 
@@ -93,7 +98,7 @@ class MassProbabilityFunction(Counter):
 Adds two distributions.
 The result is the distribution of sums of values from the two.
         """
-        pmf = Pmf()
+        pmf = MassProbabilityFunction()
         for key1, prob1 in self.items():
             for key2, prob2 in other.items():
                 pmf[key1 + key2] += prob1 * prob2
@@ -117,64 +122,73 @@ The result is the distribution of sums of values from the two.
                 return False
         return True
     
-
-class EntropyPool():
-    '''Holds A pool of entropic value'''
-    def __init__(self, bytesize:int, scalingfactor:int, method = "xor"):
-        #setup the system in order
-        self.pool = dict
-        self.mixingmethod = method
-        self.bytesize = bytesize
-        self.scalingfactor = self.finalizescaling(scalingfactor)
-        self.SaltMine(self.bytesize,self.mixingmethod)
-
-    def finalizescaling(self, inputplustuff):
-        scalingfactor = inputplustuff
-        return scalingfactor
-
-    def gettime(self):
-        timenow = time.time()
-        return timenow
-    
-    def gettimenanosec(self):
-        timenow = time.time_ns()
-        return timenow
-    
-    def fillpool(self):
-        '''populate a dict with random values'''
-        pass
-
-    def SaltMine(self, bytesize, method:str, number_of_itterations):
-        '''Derives good random numbers from a variety of sources
-    method == "xor" || "hmac"
-
-Will itterate the operation the specified number of times  '''
-        try:
-            if method == "xor":
-                self.XORBox(number_of_itterations)
-            elif method == "hmac":
-                self.hmac(self.source1(),self.source2(), number_of_itterations)
-            else:
-                raise Exception
-        except Exception:
-            error_printer("[-]")
+class MersenneTwist():
+    def __init__(self):
+        # coefficients for MT19937
+        (self.w, self.n, self.m, self.r) = (32, 624, 397, 31)
+        self.a = 0x9908B0DF
+        (self.u, self.d) = (11, 0xFFFFFFFF)
+        (self.s, self.b) = (7, 0x9D2C5680)
+        (self.t, self.c) = (15, 0xEFC60000)
+        self.l = 18
+        self.f = 1812433253
+        # make an array to store the state of the generator
+        self.MT = [0 for i in range(self.n)]
+        self.index = self.n+1
+        self.lower_mask = 0xFFFFFFFF #int(bin(1 << r), 2) - 0b1
+        self.upper_mask = 0x00000000 #int(str(-~lower_mask)[-w:])
         
-    def source1(self):
-        '''return os.urandom(self.bytesize)'''
-        return os.urandom(self.bytesize)
-
-    def source2(self):
-        '''return secrets.randbits(self.bytesize)'''
-        return secrets.randbits(self.bytesize)
+        #print(extract_number())
     
-    def source3(self):
-        '''return self.gettimenanosec()'''
-        return self.gettimenanosec()
+    def seedtwister(self,seed):
+        '''initialize the generator from a seed'''
+        self.mt_seed(seed)
 
-    def hmac(self, data1:bytes, data2:bytes, number_of_itterations):
-         hmac.new(data1, msg=data2, digestmod='')
+    def mt_seed(self, seed):
+        # global self.index = int
+        # self.index = n
+        self.MT[0] = seed
+        for i in range(1, self.n):
+            temp = self.f * (self.MT[i-1] ^ (self.MT[i-1] >> (self.w-2))) + i
+            self.MT[i] = temp & 0xffffffff
 
+    # Extract a tempered value based on MT[index]
+    # calling twist() every n numbers
+    def extract_number(self):
+        ''' call this function after MersenneTwist.seedtwister(seed)
+ to return a value'''
+        self.index = int
+        if self.index >= self.n:
+            self.twist()
+            self.index = 0
 
+        y = self.MT[self.index]
+        y = y ^ ((y >> self.u) & self.d)
+        y = y ^ ((y << self.t) & self.c)
+        y = y ^ ((y << self.s) & self.b)
+        y = y ^ (y >> self.l)
+
+        self.index += 1
+        return y & 0xffffffff
+    
+    # Generate the next n values from the series x_i
+    def twist(self):
+        for i in range(0, self.n):
+            x = (self.MT[i] & self.upper_mask) + (self.MT[(i+1) % self.n] & self.lower_mask)
+            xA = x >> 1
+            if (x % 2) != 0:
+                xA = xA ^ self.a
+            self.MT[i] = self.MT[(i + self.m) % self.n] ^ xA
+
+class XORShift():
+    def __init__(self):
+        pass
+    
+    def uniformity(self, x):
+        '''Will return a number describing the uniformity of the data fed to it
+Accepts arrays of integers/floats'''
+        return lambda x : 1 - 0.5*sum( abs(x - numpy.average(x)) )/(len(x)*numpy.average(x))
+    
     def XORBox(self, number_of_itterations):
         '''Performs XOR and shuffling operations on a grid of PRN/CSPRN
         to simply generate an even more secure byte array...
@@ -211,6 +225,70 @@ Will itterate the operation the specified number of times  '''
         except Exception:
             error_printer("[-] Could not XOR bytes: ")
         return XORFinal
+
+
+class EntropyPool():
+    '''Holds A pool of entropic value'''
+    def __init__(self, bytesize:int, scalingfactor:int, method = "xor"):
+        #setup the system in order
+        self.pool = list
+        self.mixingmethod = method
+        self.bytesize = bytesize
+        self.scalingfactor = self.finalizescaling(scalingfactor)
+        self.SaltMine(self.bytesize,self.mixingmethod)
+
+    def finalizescaling(self, inputplustuff):
+        scalingfactor = inputplustuff
+        return scalingfactor
+
+    def gettime(self):
+        timenow = time.time()
+        return timenow
+    
+    def gettimenanosec(self):
+        timenow = time.time_ns()
+        return timenow
+    
+    def fillpool(self):
+        '''populate a dict with random values'''
+        pass
+
+    def stirrpool(self,strongseed):
+        pass
+
+    def SaltMine(self, bytesize, method:str, number_of_itterations, seed):
+        '''Derives good random numbers from a variety of sources
+    method == "xor" || "twist"
+
+Will itterate the operation the specified number of times  '''
+        try:
+            #if XOR
+            if method == "xor":
+                xorstuff = XORShift()
+                for x in range(number_of_itterations):
+                    self.pool.append(xorstuff.XORBox(number_of_itterations))
+            # mersenne twister
+            elif method == "twist":
+                twister = MersenneTwist()
+                twister.seedtwister(seed)
+                for x in range(number_of_itterations):
+                    self.pool.append(twister.extract_number())
+            else:
+                raise Exception
+        except Exception:
+            error_printer("[-]")
+        
+    def source1(self):
+        '''return os.urandom(self.bytesize)'''
+        return os.urandom(self.bytesize)
+
+    def source2(self):
+        '''return secrets.randbits(self.bytesize)'''
+        return secrets.randbits(self.bytesize)
+    
+    def source3(self):
+        '''return self.gettimenanosec()'''
+        return self.gettimenanosec()
 
 class EntropyPoolHandler():
     '''Entropy Pool management
