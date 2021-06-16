@@ -16,7 +16,7 @@ from http.server import HTTPServer as Webserver
 #internal stuff
 import core
 from core import error_printer
-from backendDB import * 
+#from backendDB import * 
 from backendDB import JSONCommand,CaptiveClient,PybashyDB
 from backendDB import greenprint,blueprint,redprint,yellow_bold_print
 from backendDB import error_printer
@@ -57,8 +57,8 @@ parser.add_argument('--monitor_iface',
                                  help    = "The interface name of the Interface in monitor mode " )
 parser.add_argument('--ethernet_iface',
                                  dest    = 'iface',
-                                 action  = "" ,
-                                 default = '' ,
+                                 action  = "store" ,
+                                 default = 'eth0' ,
                                  help    = "Outward facing interface, the one that connects to the internet" )
 parser.add_argument('--NAT_iface',
                                  dest    = 'NAT_iface',
@@ -85,22 +85,21 @@ parser.add_argument('--htmldirectory',
                                  action  = "store" ,
                                  default = './html/' ,
                                  help    = "directory the captive portal index is in" )                                 
-parser.add_argument('--',
-                                 dest    = '',
-                                 action  = "" ,
-                                 default = '' ,
-                                 help    = "" )                                 
 parser.add_argument('--bad',
                                  dest    = 'bad',
-                                 action  = "bool" ,
+                                 action  = "store" ,
                                  default = False ,
                                  help    = "Will determine if this is an insecure tool of destruction or a useful tool of networking" )                                 
 parser.add_argument('--debug',
                                  dest    = 'debug',
                                  action  = "store" ,
-                                 default = 'True' ,
+                                 default = True ,
                                  help    = 'Verbose Output and Debug Pages are enabled with this "Default : On " option' )                                 
-
+#parser.add_argument('--',
+#                                 dest    = '',
+#                                 action  = "" ,
+#                                 default = '' ,
+#                                 help    = "" )                                 
 #########################################################
 ###        Page Mirroring Tool
 #########################################################
@@ -150,7 +149,7 @@ class BackendServer():
             #self.new_function       = FunctionSet()
         
             #run tests from the core.py
-            core.run_test()
+            #core.run_test()
             ###################################################
             #       HERE IS WHERE THE WERVER IS STARTED
             ###################################################
@@ -582,6 +581,7 @@ Optional Param:
 
 
 if __name__ == "__main__":
+    greenprint("[+] Parsing Command Line Arguments")
     arguments  = parser.parse_args()
     BAD = arguments.bad
     #filters are necessary to prevent the user from doing strange things and destroying stuff.
@@ -592,15 +592,19 @@ if __name__ == "__main__":
     #debugging stuff
     DEBUG = arguments.debug
     if arguments.debug == True:
+        greenprint("[+] Debugging Mode: Enabled")
         import cgitb
         cgitb.enable()
+    greenprint("[+] Debugging Mode: Disabled")
 
     # we can either run the program to capture a captive portal...
     if arguments.mirror == True :
+        greenprint("[+] Mirroring Mode: Enabled")
         wget_thing = GetPage(arguments.directory_prefix,
                          arguments.target,
                          arguments.useragent,
                          arguments.wget_options)
     # or serve a captured portal!
     elif arguments.portal == True:
+        greenprint("[+] Portal Mode: Enabled")
         BackendServer(arguments)
