@@ -173,8 +173,8 @@ class CaptiveClient(PybashyDB.Model):
     macaddr                   = PybashyDB.Column(PybashyDB.String(32))
     ipaddress                 = PybashyDB.Column(PybashyDB.String(32))
     email                     = PybashyDB.Column(PybashyDB.String(256))
-    isauthenticated           = PybashyDB.Column(PybashyDB.Bool)
-    isactive                  = PybashyDB.Column(PybashyDB.Bool)
+    isauthenticated           = PybashyDB.Column(PybashyDB.Boolean)
+    isactive                  = PybashyDB.Column(PybashyDB.Boolean)
 
     def __repr__(self):
         return '''=========================================
@@ -288,7 +288,6 @@ testuser = CaptiveClient(Hostname= "ChristmasParty",
                          password= "machinegun",
                          macaddr = "de:ad:be:ef:ca:fe",
                          email   = "1badasscop@nakatomi.plaza",
-                         notes   = "treat with respect"
                        )
 
 try:
