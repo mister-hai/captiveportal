@@ -90,10 +90,10 @@ parser.add_argument('--',
                                  action  = "" ,
                                  default = '' ,
                                  help    = "" )                                 
-parser.add_argument('--goodorbad',
-                                 dest    = 'goodorbad',
-                                 action  = "store" ,
-                                 default = 'good' ,
+parser.add_argument('--bad',
+                                 dest    = 'bad',
+                                 action  = "bool" ,
+                                 default = False ,
                                  help    = "Will determine if this is an insecure tool of destruction or a useful tool of networking" )                                 
 parser.add_argument('--debug',
                                  dest    = 'debug',
@@ -144,22 +144,25 @@ class BackendServer():
         # we need to establish the mitm network with the json 
         # contained in EstablishMITMnetwork()
         # execution pool to hold CommandSet()
-        self.exec_pool          = core.ExecutionPool()
-        self.function_prototype = core.CommandSet()
-        #self.new_function       = FunctionSet()
+        try:
+            self.exec_pool          = core.ExecutionPool()
+            self.function_prototype = core.CommandSet()
+            #self.new_function       = FunctionSet()
         
-        #run tests from the core.py
-        core.run_test()
-        ###################################################
-        #       HERE IS WHERE THE WERVER IS STARTED
-        ###################################################
-        #set monitor mode on flagged interface
-        self.SetMonitorMode()
-        greenprint("[+] Creating IPTables Rulesets for Man-In-The-Middle Attack")
-        core.PybashyRunFunction(self.EstablishMITMnetwork)
-        greenprint("[+] Starting web server")
-        self.ServePortal()
-
+            #run tests from the core.py
+            core.run_test()
+            ###################################################
+            #       HERE IS WHERE THE WERVER IS STARTED
+            ###################################################
+            #set monitor mode on flagged interface
+            self.SetMonitorMode()
+            greenprint("[+] Creating IPTables Rulesets for Man-In-The-Middle Attack")
+            core.PybashyRunFunction(self.EstablishMITMnetwork)
+            greenprint("[+] Starting web server")
+            self.ServePortal()
+        except Exception:
+            error_printer("[-] Failure in BackendServer.RunServer()")
+        
     #sets monitor mode
     def SetMonitorMode(self):
         try:
@@ -521,20 +524,30 @@ Optional Param:
 
             #saved as plaintext if BAD option set
             if fileorsql == "sql":
+                # WARNING!
+                if BAD == True:
+                    passwd = self.formdata.getvalue("password")
+                else:
+                    passwd = hashlib.sha256(self.formdata.getvalue("password"))
+                #run db operations
                 newuser = CaptiveClient(Hostname= "",
                     username= self.formdata.getvalue("username"),
-                    password= self.formdata.getvalue("password"),
-                    macaddr = "de:ad:be:ef:ca:fe",
+                    password = passwd,                 
                     email   = self.formdata.getvalue("email"),
                 )
                 add_to_db(newuser)
             #saved as plaintext if BAD option set
             elif fileorsql == "file":
                 with open(filename, 'ab') as filehandle:
-
+                    # WARNING!
+                    if BAD == True:
+                        passwd = self.formdata.getvalue("password")
+                    else:
+                        passwd = hashlib.sha256(self.formdata.getvalue("password"))
+                    
                     filehandle.write(self.formdata.getvalue("username"))
                     filehandle.write('\n')
-                    filehandle.write(self.formdata.getvalue("password"))
+                    filehandle.write(passwd)
                     filehandle.write(self.formdata.getvalue("email"))
                     filehandle.write('\n\n')
                     filehandle.close()
@@ -570,7 +583,7 @@ Optional Param:
 
 if __name__ == "__main__":
     arguments  = parser.parse_args()
-
+    BAD = arguments.bad
     #filters are necessary to prevent the user from doing strange things and destroying stuff.
     if (arguments.mirror == True) and (arguments.portal == True):
         redprint("[-] INVALID OPTIONS: CANNOT USE -portal FLAG IN CONJUNCTION WITH -mirror FLAG, EXITING PROGRAM!")

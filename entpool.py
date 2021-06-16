@@ -23,6 +23,9 @@ This tutorial uses code from the following sources:
 https://github.com/yinengy/Mersenne-Twister-in-Python
 https://github.com/AllenDowney/PythonCounterPmf/
 
+    the needed effort usually multiplies with the digest length, even a thousand-fold
+    advantage in processing power can be neutralized by adding a few dozen bits to the latter. 
+    
 Claude Shannon's definition of self-information was chosen to meet several axioms:
     - An event with probability 100% is perfectly unsurprising and yields no information.
     - The less probable an event is, the more surprising it is and the more information it yields.
@@ -36,6 +39,7 @@ Claude Shannon's definition of self-information was chosen to meet several axiom
 #    t.print_exc()
 # I have no fucking idea what I am doing
 TESTING = True
+DEBUG = True
 import hmac
 import time
 import numpy
@@ -47,6 +51,19 @@ from binascii import hexlify
 from collections import Counter
 from cryptography.fernet import Fernet
 from backendDB import redprint,greenprint,blueprint,makeyellow,error_printer
+
+def source1(bytesize):
+    '''return os.urandom(self.bytesize)'''
+    return os.urandom(bytesize)
+
+def source2(bytesize):
+    '''return secrets.randbits(self.bytesize)'''
+    return secrets.randbits(bytesize)
+    
+def source3():
+    '''return time.time_ns()'''
+    timenow = time.time_ns()
+    return timenow
 
 # the idea of this is to have multiple sources of randomness and 
 # XOR/HMAC them into a single byte array of fixed length for the purposes of 
@@ -91,6 +108,8 @@ The result is the distribution of sums of values from the two.
         return True
     
 class MersenneTwist():
+    '''seed with a good CSPRN
+    Uses a mersenne twister to generate random numbers'''
     def __init__(self):
         # coefficients for MT19937
         (self.w, self.n, self.m, self.r) = (32, 624, 397, 31)
@@ -168,11 +187,13 @@ From Wikipedia:
         datafield = []
         try:
             for bytefield1,bytefield2 in data1,data2:
+                # if they are equal
                 if bytefield1 == bytefield2:
                     #discard the number
                     pass
+                # if they unequal
                 elif bytefield1 != bytefield2:
-                    #save the number
+                    #save the first number
                     datafield.append(bytefield1)
         except Exception:
             error_printer("[-] Von Neuman Extractor failed:")
@@ -198,8 +219,9 @@ From Wikipedia:
                 for index in datafield:
                     # index + 1 is over one column to the right
                     # index - 1 is to the left
-                    # Row A is this loop here, each data item is a Row
-                    for byte in datafield[index == 0]:
+                    # Row A-D is this loop here, each data item is a Row
+                    # 8-bits x 4 slots = 32-bits wide for 8-bit ascii chars
+                    for byte in datafield[index]:
                         # row operations
                         # use index to access other rows as thus:
                         # data2[index] == data1[index] == current column, named row
@@ -226,19 +248,6 @@ Final pool is held in self.output
         self.output = list
         self.randomnesscheck = MassProbabilityFunction()
 
-    def uniformity(self, x):
-        '''Will return a number describing the uniformity of the data fed to it
-Accepts arrays of integers/floats'''
-        return lambda x : 1 - 0.5*sum( abs(x - numpy.average(x)) )/(len(x)*numpy.average(x))
-
-    def gettime(self):
-        timenow = time.time()
-        return timenow
-    
-    def gettimenanosec(self):
-        timenow = time.time_ns()
-        return timenow
-
     def SaltMine(self, bytesize, number_of_itterations, seed):
         '''Derives good random numbers from a variety of sources
     - Will itterate the operation the specified number of times
@@ -250,23 +259,13 @@ Accepts arrays of integers/floats'''
             twister.seedtwister(seed)
             for x in range(number_of_itterations):
                 self.pool.append(twister.extract_number())
+            # once we have filled the pool, with PRN from the twister
+            # we can then filter them through a 
             for seedbytes in self.pool:
                 self.output.append(xorstuff.XORBox(seedbytes, number_of_itterations))
 
         except Exception:
-            error_printer("[-] Could not Create Randomness")
-        
-    def source1(self):
-        '''return os.urandom(self.bytesize)'''
-        return os.urandom(self.bytesize)
-
-    def source2(self):
-        '''return secrets.randbits(self.bytesize)'''
-        return secrets.randbits(self.bytesize)
-    
-    def source3(self):
-        '''return self.gettimenanosec()'''
-        return self.gettimenanosec()
+            error_printer("[-] Could not get, any more Random than this. Sorry.")
 
 class EntropyPoolHandler():
     '''Entropy Pool management
@@ -275,8 +274,31 @@ class EntropyPoolHandler():
 
 This is the Function to call externally'''
     def __init__(self, bytearraylength = 32):
+        source = source1(bytearraylength)
         scalingfactor = 1
         # we need to perform sorting operations and metrics so 
         # we instantiate multiple handlers to perform those operations
-        NewPool = EntropyPool(bytearraylength, scalingfactor)
-        NewPool.SaltMine(bytearraylength ,scalingfactor,NewPool.source1)
+        self.NewPool = EntropyPool(bytearraylength, scalingfactor)
+        self.NewPool.SaltMine(bytearraylength ,scalingfactor, source)
+    
+    def uniformity(self, x):
+        '''Will return a number describing the uniformity of the data fed to it
+    Accepts arrays of integers/floats'''
+        return lambda x : 1 - 0.5*sum( abs(x - numpy.average(x)) )/(len(x)*numpy.average(x))
+    
+    def check_uniformity(self):
+        '''In statistics, the bias (or bias function) of an estimator is the 
+    difference between this estimator's expected value and the true value of the
+    parameter being estimated. An estimator or decision rule with zero bias is 
+    called unbiased. In statistics, "bias" is an objective property of an estimator.
+    Bias can also be measured with respect to the median, rather than the mean 
+    (expected value), in which case one distinguishes median-unbiased from the 
+    usual mean-unbiasedness property.'''
+        uniformityarray = []
+        for csprn in self.NewPool.pool:
+            # comparing csprn from pool to csprn after uniformity c
+            #we have to compare each number for the distance between the values
+            # we save the value representing the distance between the  two
+            # in its own array and average those into one number, representing 
+            # the bias, we want numbers close to 0?
+            uniformityarray.append(self.uniformity(csprn))

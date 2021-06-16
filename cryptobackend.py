@@ -132,8 +132,8 @@ class Salt():
         self.poursalt(bytesize)
     
     def poursalt(self, bytesize:int):
-        herp = EntropyPool(bytesize)
-        return herp.SaltMine(bytesize)
+        herp = EntropyPool(bytesize, 3)
+        #return herp.SaltMine(bytesize)
 
 class Encrypt():
     ''''''
