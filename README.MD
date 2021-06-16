@@ -10,8 +10,10 @@
                         [--filename FILENAME] [--port PORT] [--portal_page INDEX]
                         [--htmldirectory HTMLDIRECTORY] [--bad BAD] [--debug DEBUG]
 
-optional arguments:
+#optional arguments:
+    
     -h, --help            show this help message and exit
+    
     --target TARGET       Website to mirror, this is usually the only option you should set. 
                         Multiple downloads will be stored in thier own directories, ready 
                         for hosting internally.
